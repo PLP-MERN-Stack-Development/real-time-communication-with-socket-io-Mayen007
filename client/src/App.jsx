@@ -10,6 +10,7 @@ export default function App() {
     users,
     sendMessage,
     setTyping,
+    usernameError,
   } = useSocket();
   const [name, setName] = useState("");
   const [text, setText] = useState("");
@@ -24,6 +25,9 @@ export default function App() {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        {usernameError && (
+          <div style={{ color: "red", marginTop: 6 }}>{usernameError}</div>
+        )}
         <button
           onClick={() => connect(name)}
           disabled={isConnected || !name}

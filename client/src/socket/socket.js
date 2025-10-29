@@ -20,6 +20,7 @@ export const useSocket = () => {
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
+  const [usernameError, setUsernameError] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
 
   // Connect to socket server
@@ -67,6 +68,24 @@ export const useSocket = () => {
       setMessages((prev) => [...prev, message]);
     };
 
+    const onUsernameError = (err) => {
+      setUsernameError(err?.message || 'Username error');
+    };
+
+    const onJoinSuccess = ({ username }) => {
+      setUsernameError(null);
+      // Optionally add a system message acknowledging the join
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          system: true,
+          message: `You joined as ${username}`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    };
+
     const onPrivateMessage = (message) => {
       setLastMessage(message);
       setMessages((prev) => [...prev, message]);
@@ -112,6 +131,8 @@ export const useSocket = () => {
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('receive_message', onReceiveMessage);
+    socket.on('username_error', onUsernameError);
+    socket.on('join_success', onJoinSuccess);
     socket.on('private_message', onPrivateMessage);
     socket.on('user_list', onUserList);
     socket.on('user_joined', onUserJoined);
@@ -123,6 +144,8 @@ export const useSocket = () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('receive_message', onReceiveMessage);
+      socket.off('username_error', onUsernameError);
+      socket.off('join_success', onJoinSuccess);
       socket.off('private_message', onPrivateMessage);
       socket.off('user_list', onUserList);
       socket.off('user_joined', onUserJoined);
@@ -138,6 +161,7 @@ export const useSocket = () => {
     messages,
     users,
     typingUsers,
+    usernameError,
     connect,
     disconnect,
     sendMessage,

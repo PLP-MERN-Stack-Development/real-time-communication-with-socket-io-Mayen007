@@ -37,29 +37,51 @@ io.on('connection', (socket) => {
 
   // Handle user joining
   socket.on('user_join', (username) => {
-    users[socket.id] = { username, id: socket.id };
+    const clean = (username || '').toString().trim();
+    if (!clean) {
+      socket.emit('username_error', { message: 'Username cannot be empty' });
+      return;
+    }
+
+    // Enforce unique usernames across current connections
+    const taken = Object.values(users).some((u) => u.username === clean);
+    if (taken) {
+      socket.emit('username_error', { message: 'Username already taken' });
+      return;
+    }
+
+    users[socket.id] = { username: clean, id: socket.id };
+    // Acknowledge the joining socket first
+    socket.emit('join_success', { username: clean, id: socket.id });
+    // Broadcast updated lists and join event to everyone else
     io.emit('user_list', Object.values(users));
-    io.emit('user_joined', { username, id: socket.id });
-    console.log(`${username} joined the chat`);
+    io.emit('user_joined', { username: clean, id: socket.id });
+    console.log(`${clean} joined the chat`);
   });
 
   // Handle chat messages
   socket.on('send_message', (messageData) => {
+    // Require that the socket has joined with a username
+    if (!users[socket.id]) {
+      socket.emit('not_authenticated', { message: 'You must join with a username before sending messages' });
+      return;
+    }
+
     const message = {
       ...messageData,
       id: Date.now(),
-      sender: users[socket.id]?.username || 'Anonymous',
+      sender: users[socket.id].username,
       senderId: socket.id,
       timestamp: new Date().toISOString(),
     };
-    
+
     messages.push(message);
-    
+
     // Limit stored messages to prevent memory issues
     if (messages.length > 100) {
       messages.shift();
     }
-    
+
     io.emit('receive_message', message);
   });
 
@@ -67,13 +89,13 @@ io.on('connection', (socket) => {
   socket.on('typing', (isTyping) => {
     if (users[socket.id]) {
       const username = users[socket.id].username;
-      
+
       if (isTyping) {
         typingUsers[socket.id] = username;
       } else {
         delete typingUsers[socket.id];
       }
-      
+
       io.emit('typing_users', Object.values(typingUsers));
     }
   });
@@ -88,7 +110,7 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString(),
       isPrivate: true,
     };
-    
+
     socket.to(to).emit('private_message', messageData);
     socket.emit('private_message', messageData);
   });
@@ -100,10 +122,10 @@ io.on('connection', (socket) => {
       io.emit('user_left', { username, id: socket.id });
       console.log(`${username} left the chat`);
     }
-    
+
     delete users[socket.id];
     delete typingUsers[socket.id];
-    
+
     io.emit('user_list', Object.values(users));
     io.emit('typing_users', Object.values(typingUsers));
   });
