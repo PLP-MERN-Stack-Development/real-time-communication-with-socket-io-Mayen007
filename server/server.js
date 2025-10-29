@@ -152,8 +152,24 @@ io.on('connection', (socket) => {
     // initialize reactions array
     if (!Array.isArray(message.reactions)) message.reactions = [];
 
-    // push reaction (no dedupe for now)
-    message.reactions.push({ emoji, by: users[socket.id].username, timestamp: new Date().toISOString() });
+    // Enforce one reaction per user per message.
+    // If the user already reacted with the same emoji, remove that reaction (toggle off).
+    // Otherwise, remove any other reactions by this user on the message and add the new one.
+    const username = users[socket.id].username;
+    const sameIdx = message.reactions.findIndex((r) => r.emoji === emoji && r.by === username);
+    if (sameIdx !== -1) {
+      // remove the existing identical reaction (toggle off)
+      message.reactions.splice(sameIdx, 1);
+    } else {
+      // remove any other reactions by this user (enforce single reaction per user per message)
+      for (let i = message.reactions.length - 1; i >= 0; i--) {
+        if (message.reactions[i].by === username) {
+          message.reactions.splice(i, 1);
+        }
+      }
+      // add the new reaction
+      message.reactions.push({ emoji, by: username, timestamp: new Date().toISOString() });
+    }
 
     // Broadcast updated message. If message is private, send only to involved parties.
     if (isPrivateMessage || message.isPrivate) {

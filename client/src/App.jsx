@@ -93,7 +93,7 @@ export default function App() {
                     : ""}
                   )
                 </span>
-                {/* Reactions display */}
+                {/* Reactions display (group by emoji, show who reacted on hover) */}
                 {m.reactions && m.reactions.length > 0 && (
                   <div
                     style={{
@@ -103,33 +103,51 @@ export default function App() {
                       alignItems: "center",
                     }}
                   >
-                    {Object.entries(
-                      m.reactions.reduce((acc, r) => {
-                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                    {(() => {
+                      const groups = m.reactions.reduce((acc, r) => {
+                        if (!acc[r.emoji])
+                          acc[r.emoji] = { count: 0, users: [] };
+                        acc[r.emoji].count += 1;
+                        acc[r.emoji].users.push(r.by);
                         return acc;
-                      }, {})
-                    ).map(([emoji, count]) => (
-                      <div key={emoji} style={{ fontSize: 14 }}>
-                        {emoji} {count}
-                      </div>
-                    ))}
+                      }, {});
+
+                      return Object.entries(groups).map(([emoji, data]) => (
+                        <div
+                          key={emoji}
+                          style={{ fontSize: 14 }}
+                          title={data.users.join(", ")}
+                        >
+                          {emoji} {data.count}
+                        </div>
+                      ));
+                    })()}
                   </div>
                 )}
-                {/* Reaction buttons */}
+                {/* Reaction buttons (toggle) */}
                 <div style={{ marginTop: 6 }}>
-                  <button
-                    onClick={() => addReaction(m.id, "👍")}
-                    style={{ marginRight: 6 }}
-                  >
-                    👍
-                  </button>
-                  <button
-                    onClick={() => addReaction(m.id, "❤️")}
-                    style={{ marginRight: 6 }}
-                  >
-                    ❤️
-                  </button>
-                  <button onClick={() => addReaction(m.id, "😂")}>😂</button>
+                  {(() => {
+                    const emojis = ["👍", "❤️", "😂"];
+                    return emojis.map((emoji) => {
+                      const userReacted =
+                        m.reactions &&
+                        m.reactions.some(
+                          (r) => r.by === currentUsername && r.emoji === emoji
+                        );
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => addReaction(m.id, emoji)}
+                          style={{
+                            marginRight: 6,
+                            background: userReacted ? "#e6f7ff" : undefined,
+                          }}
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             ))}
