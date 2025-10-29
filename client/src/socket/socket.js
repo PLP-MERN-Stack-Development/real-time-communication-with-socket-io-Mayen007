@@ -19,9 +19,11 @@ export const useSocket = () => {
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [privateMessages, setPrivateMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [usernameError, setUsernameError] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
 
   // Connect to socket server
@@ -52,6 +54,11 @@ export const useSocket = () => {
     socket.emit('typing', isTyping);
   };
 
+  // Add a reaction to a message
+  const addReaction = (messageId, emoji) => {
+    socket.emit('add_reaction', { messageId, emoji });
+  };
+
   // Socket event listeners
   useEffect(() => {
     // Connection events
@@ -74,9 +81,10 @@ export const useSocket = () => {
       setUsernameError(err?.message || 'Username error');
     };
 
-    const onJoinSuccess = ({ username }) => {
+    const onJoinSuccess = ({ username, id }) => {
       setUsernameError(null);
       setCurrentUsername(username);
+      setCurrentUserId(id);
       // Optionally add a system message acknowledging the join
       setMessages((prev) => [
         ...prev,
@@ -91,7 +99,7 @@ export const useSocket = () => {
 
     const onPrivateMessage = (message) => {
       setLastMessage(message);
-      setMessages((prev) => [...prev, message]);
+      setPrivateMessages((prev) => [...prev, message]);
     };
 
     // User events
@@ -130,6 +138,14 @@ export const useSocket = () => {
       setTypingUsers(users);
     };
 
+    const onMessageUpdated = (updatedMessage) => {
+      if (updatedMessage.isPrivate) {
+        setPrivateMessages((prev) => prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)));
+      } else {
+        setMessages((prev) => prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)));
+      }
+    };
+
     // Register event listeners
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -141,6 +157,7 @@ export const useSocket = () => {
     socket.on('user_joined', onUserJoined);
     socket.on('user_left', onUserLeft);
     socket.on('typing_users', onTypingUsers);
+    socket.on('message_updated', onMessageUpdated);
 
     // Clean up event listeners
     return () => {
@@ -154,6 +171,7 @@ export const useSocket = () => {
       socket.off('user_joined', onUserJoined);
       socket.off('user_left', onUserLeft);
       socket.off('typing_users', onTypingUsers);
+      socket.off('message_updated', onMessageUpdated);
     };
   }, []);
 
@@ -162,15 +180,18 @@ export const useSocket = () => {
     isConnected,
     lastMessage,
     messages,
+    privateMessages,
     users,
     typingUsers,
     usernameError,
     currentUsername,
+    currentUserId,
     connect,
     disconnect,
     sendMessage,
     sendPrivateMessage,
     setTyping,
+    addReaction,
   };
 };
 

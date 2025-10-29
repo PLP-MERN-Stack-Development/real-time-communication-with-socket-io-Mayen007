@@ -31,6 +31,8 @@ const users = {};
 // knownUsers keeps a registry of usernames seen by the server and their online status
 const knownUsers = {};
 const messages = [];
+// store private messages separately to avoid leaking into global feed
+const privateMessages = [];
 const typingUsers = {};
 
 // Socket.io connection handler
@@ -114,13 +116,62 @@ io.on('connection', (socket) => {
       id: Date.now(),
       sender: users[socket.id]?.username || 'Anonymous',
       senderId: socket.id,
+      to,
       message,
       timestamp: new Date().toISOString(),
       isPrivate: true,
     };
 
+    // store in privateMessages (separate from global messages)
+    privateMessages.push(messageData);
+    if (privateMessages.length > 500) privateMessages.shift();
+
+    // send only to recipient and sender
     socket.to(to).emit('private_message', messageData);
     socket.emit('private_message', messageData);
+  });
+
+  // Handle adding reactions to messages
+  socket.on('add_reaction', ({ messageId, emoji }) => {
+    if (!users[socket.id]) {
+      socket.emit('not_authenticated', { message: 'You must join before reacting' });
+      return;
+    }
+
+    let message = messages.find((m) => m.id === messageId);
+    let isPrivateMessage = false;
+    if (!message) {
+      message = privateMessages.find((m) => m.id === messageId);
+      isPrivateMessage = true;
+    }
+    if (!message) {
+      socket.emit('error', { message: 'Message not found' });
+      return;
+    }
+
+    // initialize reactions array
+    if (!Array.isArray(message.reactions)) message.reactions = [];
+
+    // push reaction (no dedupe for now)
+    message.reactions.push({ emoji, by: users[socket.id].username, timestamp: new Date().toISOString() });
+
+    // Broadcast updated message. If message is private, send only to involved parties.
+    if (isPrivateMessage || message.isPrivate) {
+      // message.to is recipient socket id, message.senderId is sender socket id
+      const recipientSocketId = message.to;
+      const senderSocketId = message.senderId;
+
+      // notify the reacting socket and both parties if present
+      socket.emit('message_updated', message);
+      if (recipientSocketId && recipientSocketId !== socket.id) {
+        socket.to(recipientSocketId).emit('message_updated', message);
+      }
+      if (senderSocketId && senderSocketId !== socket.id && senderSocketId !== recipientSocketId) {
+        socket.to(senderSocketId).emit('message_updated', message);
+      }
+    } else {
+      io.emit('message_updated', message);
+    }
   });
 
   // Handle disconnection

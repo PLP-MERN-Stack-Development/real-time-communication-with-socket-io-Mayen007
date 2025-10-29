@@ -7,17 +7,23 @@ export default function App() {
     disconnect,
     isConnected,
     messages,
+    privateMessages,
     users,
     sendMessage,
+    sendPrivateMessage,
+    addReaction,
     setTyping,
     typingUsers,
     usernameError,
     currentUsername,
+    currentUserId,
   } = useSocket();
   const typingTimeoutRef = useRef(null);
   const [name, setName] = useState("");
   const [text, setText] = useState("");
   const [nameError, setNameError] = useState(null);
+  const [pmTarget, setPmTarget] = useState(null);
+  const [pmText, setPmText] = useState("");
 
   const handleJoin = () => {
     const trimmed = (name || "").trim();
@@ -87,6 +93,44 @@ export default function App() {
                     : ""}
                   )
                 </span>
+                {/* Reactions display */}
+                {m.reactions && m.reactions.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    {Object.entries(
+                      m.reactions.reduce((acc, r) => {
+                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                        return acc;
+                      }, {})
+                    ).map(([emoji, count]) => (
+                      <div key={emoji} style={{ fontSize: 14 }}>
+                        {emoji} {count}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Reaction buttons */}
+                <div style={{ marginTop: 6 }}>
+                  <button
+                    onClick={() => addReaction(m.id, "👍")}
+                    style={{ marginRight: 6 }}
+                  >
+                    👍
+                  </button>
+                  <button
+                    onClick={() => addReaction(m.id, "❤️")}
+                    style={{ marginRight: 6 }}
+                  >
+                    ❤️
+                  </button>
+                  <button onClick={() => addReaction(m.id, "😂")}>😂</button>
+                </div>
               </div>
             ))}
           </div>
@@ -216,11 +260,75 @@ export default function App() {
                     </div>
                   )}
                 </div>
+                {/* Private message button (only for other users with an id) */}
+                {u.id && u.username !== currentUsername && (
+                  <button
+                    onClick={() => {
+                      // open PM thread with this user
+                      setPmTarget({ id: u.id, username: u.username });
+                    }}
+                    style={{ marginLeft: 6 }}
+                  >
+                    PM
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         </div>
       </div>
+      {/* Private conversation panel (appears when a PM target is selected) */}
+      {pmTarget && (
+        <div
+          style={{ marginTop: 12, borderTop: "1px solid #eee", paddingTop: 8 }}
+        >
+          <h4>Private chat with {pmTarget.username}</h4>
+          <div
+            style={{
+              border: "1px solid #ddd",
+              padding: 8,
+              height: 200,
+              overflow: "auto",
+            }}
+          >
+            {privateMessages
+              .filter(
+                (m) =>
+                  (m.senderId === currentUserId && m.to === pmTarget.id) ||
+                  (m.senderId === pmTarget.id && m.to === currentUserId)
+              )
+              .map((m) => (
+                <div key={m.id} style={{ marginBottom: 6 }}>
+                  <strong>{m.sender}</strong>: {m.message}{" "}
+                  <span style={{ color: "#888", fontSize: 11 }}>
+                    {new Date(m.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <input
+              value={pmText}
+              onChange={(e) => setPmText(e.target.value)}
+              placeholder={`Message ${pmTarget.username}`}
+              style={{ width: "70%" }}
+            />
+            <button
+              onClick={() => {
+                if (!pmText.trim()) return;
+                sendPrivateMessage(pmTarget.id, pmText.trim());
+                setPmText("");
+              }}
+              style={{ marginLeft: 8 }}
+            >
+              Send PM
+            </button>
+            <button onClick={() => setPmTarget(null)} style={{ marginLeft: 8 }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
