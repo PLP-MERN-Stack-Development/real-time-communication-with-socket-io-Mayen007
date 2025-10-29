@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useSocket } from "./socket/socket";
 
 export default function App() {
@@ -10,10 +10,24 @@ export default function App() {
     users,
     sendMessage,
     setTyping,
+    typingUsers,
     usernameError,
+    currentUsername,
   } = useSocket();
+  const typingTimeoutRef = useRef(null);
   const [name, setName] = useState("");
   const [text, setText] = useState("");
+  const [nameError, setNameError] = useState(null);
+
+  const handleJoin = () => {
+    const trimmed = (name || "").trim();
+    if (!trimmed) {
+      setNameError("Please enter a username");
+      return;
+    }
+    setNameError(null);
+    connect(trimmed);
+  };
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial, sans-serif" }}>
@@ -25,12 +39,15 @@ export default function App() {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        {nameError && (
+          <div style={{ color: "red", marginTop: 6 }}>{nameError}</div>
+        )}
         {usernameError && (
           <div style={{ color: "red", marginTop: 6 }}>{usernameError}</div>
         )}
         <button
-          onClick={() => connect(name)}
-          disabled={isConnected || !name}
+          onClick={handleJoin}
+          disabled={isConnected || !name.trim()}
           style={{ marginLeft: 8 }}
         >
           Join
@@ -42,6 +59,11 @@ export default function App() {
         >
           Leave
         </button>
+        {currentUsername && (
+          <div style={{ marginTop: 6, color: "green" }}>
+            Connected as {currentUsername}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 16 }}>
@@ -73,8 +95,18 @@ export default function App() {
             <input
               value={text}
               onChange={(e) => {
-                setText(e.target.value);
+                const v = e.target.value;
+                setText(v);
+                // Signal typing with debounce: send 'typing' true immediately,
+                // then schedule a 'typing' false after 1s of inactivity.
                 setTyping(true);
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
+                }
+                typingTimeoutRef.current = setTimeout(() => {
+                  setTyping(false);
+                  typingTimeoutRef.current = null;
+                }, 1000);
               }}
               placeholder="Type a message"
               style={{ width: "70%" }}
@@ -83,6 +115,11 @@ export default function App() {
               onClick={() => {
                 sendMessage(text);
                 setText("");
+                // clear any pending timeout and notify server we've stopped typing
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
+                  typingTimeoutRef.current = null;
+                }
                 setTyping(false);
               }}
               disabled={!isConnected || !text}
@@ -91,13 +128,95 @@ export default function App() {
               Send
             </button>
           </div>
+          {/* Typing indicator UI */}
+          <div style={{ marginTop: 6, minHeight: 18 }}>
+            {typingUsers &&
+              typingUsers.length > 0 &&
+              (() => {
+                // Don't show the local user's typing status to themselves
+                const visible = typingUsers.filter(
+                  (u) => u !== currentUsername
+                );
+                if (visible.length === 0) return null;
+                if (visible.length === 1) {
+                  return (
+                    <div
+                      style={{
+                        color: "#555",
+                        fontStyle: "italic",
+                        fontSize: 13,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span>{visible[0]} is typing</span>
+                      <span className="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    style={{
+                      color: "#555",
+                      fontStyle: "italic",
+                      fontSize: 13,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span>{visible.join(", ")} are typing</span>
+                    <span className="typing-dots">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </span>
+                  </div>
+                );
+              })()}
+          </div>
         </div>
 
-        <div style={{ width: 200 }}>
+        <div style={{ width: 220 }}>
           <h3>Users</h3>
-          <ul>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {users.map((u) => (
-              <li key={u.id}>{u.username}</li>
+              <li
+                key={u.username || u.id}
+                style={{
+                  padding: "6px 4px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    borderRadius: 6,
+                    background: u.online ? "#32a852" : "#bbb",
+                  }}
+                  title={u.online ? "Online" : "Offline"}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{u.username}</div>
+                  {!u.online && (
+                    <div style={{ fontSize: 11, color: "#777" }}>
+                      {u.lastSeen
+                        ? `last seen ${new Date(u.lastSeen).toLocaleString()}`
+                        : "offline"}
+                    </div>
+                  )}
+                </div>
+              </li>
             ))}
           </ul>
         </div>

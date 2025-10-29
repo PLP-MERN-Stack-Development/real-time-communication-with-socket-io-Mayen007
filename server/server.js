@@ -28,6 +28,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Store connected users and messages
 const users = {};
+// knownUsers keeps a registry of usernames seen by the server and their online status
+const knownUsers = {};
 const messages = [];
 const typingUsers = {};
 
@@ -43,18 +45,24 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Enforce unique usernames across current connections
-    const taken = Object.values(users).some((u) => u.username === clean);
-    if (taken) {
+    // Enforce unique usernames across all known users (strict: disallow reuse)
+    if (knownUsers[clean]) {
       socket.emit('username_error', { message: 'Username already taken' });
       return;
     }
 
     users[socket.id] = { username: clean, id: socket.id };
+    // Update knownUsers registry
+    knownUsers[clean] = {
+      username: clean,
+      online: true,
+      lastSeen: null,
+      id: socket.id,
+    };
     // Acknowledge the joining socket first
     socket.emit('join_success', { username: clean, id: socket.id });
     // Broadcast updated lists and join event to everyone else
-    io.emit('user_list', Object.values(users));
+    io.emit('user_list', Object.values(knownUsers));
     io.emit('user_joined', { username: clean, id: socket.id });
     console.log(`${clean} joined the chat`);
   });
@@ -119,6 +127,13 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (users[socket.id]) {
       const { username } = users[socket.id];
+      // mark known user as offline
+      if (knownUsers[username]) {
+        knownUsers[username].online = false;
+        knownUsers[username].lastSeen = new Date().toISOString();
+        knownUsers[username].id = null;
+      }
+
       io.emit('user_left', { username, id: socket.id });
       console.log(`${username} left the chat`);
     }
@@ -126,7 +141,8 @@ io.on('connection', (socket) => {
     delete users[socket.id];
     delete typingUsers[socket.id];
 
-    io.emit('user_list', Object.values(users));
+    // Emit the full known users list (including offline users)
+    io.emit('user_list', Object.values(knownUsers));
     io.emit('typing_users', Object.values(typingUsers));
   });
 });
@@ -137,7 +153,8 @@ app.get('/api/messages', (req, res) => {
 });
 
 app.get('/api/users', (req, res) => {
-  res.json(Object.values(users));
+  // Return known users with online/offline status
+  res.json(Object.values(knownUsers));
 });
 
 // Root route

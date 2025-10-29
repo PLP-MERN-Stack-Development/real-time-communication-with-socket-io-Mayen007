@@ -21,6 +21,7 @@ export const useSocket = () => {
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [usernameError, setUsernameError] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
 
   // Connect to socket server
@@ -60,6 +61,7 @@ export const useSocket = () => {
 
     const onDisconnect = () => {
       setIsConnected(false);
+      setCurrentUsername(null);
     };
 
     // Message events
@@ -74,6 +76,7 @@ export const useSocket = () => {
 
     const onJoinSuccess = ({ username }) => {
       setUsernameError(null);
+      setCurrentUsername(username);
       // Optionally add a system message acknowledging the join
       setMessages((prev) => [
         ...prev,
@@ -162,6 +165,7 @@ export const useSocket = () => {
     users,
     typingUsers,
     usernameError,
+    currentUsername,
     connect,
     disconnect,
     sendMessage,
