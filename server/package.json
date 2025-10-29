@@ -1,0 +1,18 @@
+{
+  "name": "realtime-chat-server",
+  "version": "1.0.0",
+  "description": "Socket.io chat server for Week 5 assignment",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
