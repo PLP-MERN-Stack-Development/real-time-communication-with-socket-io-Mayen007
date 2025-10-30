@@ -3,8 +3,18 @@
 import { io } from 'socket.io-client';
 import { useEffect, useState } from 'react';
 
-// Socket.io connection URL
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+// Socket.io connection URL — read from Vite env (client/.env). If not set,
+// we fall back to an empty string so relative URLs still work. Setting this
+// is recommended for cross-origin development (e.g. server on port 5000).
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "";
+
+if (!import.meta.env.VITE_SOCKET_URL) {
+  // Developer hint: add VITE_SOCKET_URL to client/.env (example below)
+  // VITE_SOCKET_URL=http://localhost:5000
+  console.warn(
+    "VITE_SOCKET_URL is not set. If your server runs on a different origin (e.g. localhost:5000), set VITE_SOCKET_URL in client/.env"
+  );
+}
 
 // Create socket instance
 export const socket = io(SOCKET_URL, {
@@ -42,10 +52,23 @@ export const useSocket = () => {
   };
 
   // Send a message (scoped to currentRoom)
-  const sendMessage = (message, room) => {
-    const payload = { message };
+  // Accept either a simple string (message text) or an object containing
+  // additional properties (e.g. { message, fileUrl, fileType, fileName }).
+  const sendMessage = (messageOrPayload, room) => {
+    let payload = {};
+
+    if (typeof messageOrPayload === 'string') {
+      payload.message = messageOrPayload;
+    } else if (messageOrPayload && typeof messageOrPayload === 'object') {
+      // copy fields through so callers can pass a full message object
+      payload = { ...messageOrPayload };
+    } else {
+      payload.message = '';
+    }
+
     if (room) payload.room = room;
-    else if (currentRoom) payload.room = currentRoom;
+    else if (!payload.room && currentRoom) payload.room = currentRoom;
+
     socket.emit('send_message', payload);
   };
 

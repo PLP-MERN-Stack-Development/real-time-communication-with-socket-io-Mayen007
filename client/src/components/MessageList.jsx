@@ -4,9 +4,11 @@ const MessageList = React.forwardRef(function MessageList(
   ref
 ) {
   return (
-    <div ref={ref} {...props}>
-      {messages.map((m) => renderItem(m))}
-    </div>
+    <>
+      <div ref={ref} {...props}>
+        {messages.map((m) => renderItem(m))}
+      </div>
+    </>
   );
 });
 

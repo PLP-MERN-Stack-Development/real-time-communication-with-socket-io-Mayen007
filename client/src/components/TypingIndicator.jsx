@@ -7,18 +7,20 @@ export default function TypingIndicator({ typingUsers, currentUsername }) {
   )
     return null;
   return (
-    <div
-      style={{
-        color: "#555",
-        fontStyle: "italic",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      {typingUsers.filter((u) => u !== currentUsername).join(", ")}{" "}
-      {typingUsers.length === 1 ? "is" : "are"} typing
-      <span>{"..."}</span>
-    </div>
+    <>
+      <div
+        style={{
+          color: "#555",
+          fontStyle: "italic",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        {typingUsers.filter((u) => u !== currentUsername).join(", ")}{" "}
+        {typingUsers.length === 1 ? "is" : "are"} typing
+        <span>{"..."}</span>
+      </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 // server.js - Main server file for Socket.io chat application
 
 const express = require('express');
+const multer = require('multer');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -25,6 +26,26 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Set up multer for file uploads
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Use timestamp + original name for uniqueness
+    const uniqueName = Date.now() + '-' + file.originalname.replace(/\s+/g, '_');
+    cb(null, uniqueName);
+  },
+});
+const upload = multer({ storage });
+
+// Ensure uploads directory exists
+const fs = require('fs');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Store connected users and messages
 const users = {};
@@ -326,6 +347,16 @@ io.on('connection', (socket) => {
     // Emit the full known users list (including offline users)
     io.emit('user_list', Object.values(knownUsers));
   });
+});
+
+// File upload endpoint
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  // Return the public URL for the uploaded file
+  const url = `/uploads/${req.file.filename}`;
+  res.json({ url });
 });
 
 // API routes
