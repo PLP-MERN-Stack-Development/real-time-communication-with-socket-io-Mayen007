@@ -33,11 +33,20 @@ const knownUsers = {};
 const messages = [];
 // store private messages separately to avoid leaking into global feed
 const privateMessages = [];
-const typingUsers = {};
+// rooms registry (simple in-memory list). Start with a default 'general' room.
+const rooms = {
+  general: { name: 'general', createdAt: new Date().toISOString() },
+};
+// typing users per room
+const typingUsersByRoom = {};
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
+
+  // Immediately send the current room list to the connecting socket so
+  // the client UI can populate room selector before the user joins.
+  socket.emit('room_list', Object.keys(rooms));
 
   // Handle user joining
   socket.on('user_join', (username) => {
@@ -63,13 +72,66 @@ io.on('connection', (socket) => {
     };
     // Acknowledge the joining socket first
     socket.emit('join_success', { username: clean, id: socket.id });
+
+    // Auto-join the default room
+    const defaultRoom = 'general';
+    socket.join(defaultRoom);
+    users[socket.id].room = defaultRoom;
+    // send room joined ack with recent history for the room
+    socket.emit('room_joined', {
+      room: defaultRoom,
+      history: messages.filter((m) => m.room === defaultRoom),
+    });
+    // publish known rooms to clients
+    io.emit('room_list', Object.keys(rooms));
+
     // Broadcast updated lists and join event to everyone else
     io.emit('user_list', Object.values(knownUsers));
     io.emit('user_joined', { username: clean, id: socket.id });
     console.log(`${clean} joined the chat`);
   });
 
-  // Handle chat messages
+  // Allow clients to join/leave rooms
+  socket.on('join_room', (roomName) => {
+    if (!users[socket.id]) {
+      socket.emit('not_authenticated', { message: 'You must join before switching rooms' });
+      return;
+    }
+
+    const room = (roomName || 'general').toString();
+    // create room if it doesn't exist
+    if (!rooms[room]) {
+      rooms[room] = { name: room, createdAt: new Date().toISOString() };
+    }
+
+    const prev = users[socket.id].room;
+    if (prev && prev !== room) {
+      socket.leave(prev);
+      io.to(prev).emit('system', { message: `${users[socket.id].username} left the room ${prev}` });
+    }
+
+    socket.join(room);
+    users[socket.id].room = room;
+    // send history for the room
+    socket.emit('room_joined', { room, history: messages.filter((m) => m.room === room) });
+    io.emit('room_list', Object.keys(rooms));
+  });
+
+  // Allow clients to explicitly request the room list
+  socket.on('request_room_list', () => {
+    socket.emit('room_list', Object.keys(rooms));
+  });
+
+  socket.on('leave_room', (roomName) => {
+    if (!users[socket.id]) return;
+    const room = (roomName || users[socket.id].room || 'general').toString();
+    socket.leave(room);
+    if (users[socket.id]) users[socket.id].room = null;
+    socket.emit('room_left', { room });
+    io.emit('room_list', Object.keys(rooms));
+  });
+
+  // Handle chat messages (room-scoped)
   socket.on('send_message', (messageData) => {
     // Require that the socket has joined with a username
     if (!users[socket.id]) {
@@ -77,8 +139,10 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const room = (messageData && messageData.room) || users[socket.id].room || 'general';
     const message = {
       ...messageData,
+      room,
       id: Date.now(),
       sender: users[socket.id].username,
       senderId: socket.id,
@@ -92,22 +156,27 @@ io.on('connection', (socket) => {
       messages.shift();
     }
 
-    io.emit('receive_message', message);
+    // Emit message to the specific room instead of broadcasting globally
+    io.to(room).emit('receive_message', message);
   });
 
-  // Handle typing indicator
-  socket.on('typing', (isTyping) => {
-    if (users[socket.id]) {
-      const username = users[socket.id].username;
+  // typing payload may be boolean or { isTyping, room }
+  socket.on('typing', (payload) => {
+    if (!users[socket.id]) return;
 
-      if (isTyping) {
-        typingUsers[socket.id] = username;
-      } else {
-        delete typingUsers[socket.id];
-      }
+    const username = users[socket.id].username;
+    const isTyping = typeof payload === 'boolean' ? payload : !!payload?.isTyping;
+    const room = (payload && payload.room) || users[socket.id].room || 'general';
 
-      io.emit('typing_users', Object.values(typingUsers));
+    typingUsersByRoom[room] = typingUsersByRoom[room] || {};
+
+    if (isTyping) {
+      typingUsersByRoom[room][socket.id] = username;
+    } else {
+      if (typingUsersByRoom[room]) delete typingUsersByRoom[room][socket.id];
     }
+
+    io.to(room).emit('typing_users', Object.values(typingUsersByRoom[room] || {}));
   });
 
   // Handle private messages
@@ -186,7 +255,46 @@ io.on('connection', (socket) => {
         socket.to(senderSocketId).emit('message_updated', message);
       }
     } else {
-      io.emit('message_updated', message);
+      // publish the update to the room the message belongs to
+      const room = message.room || 'general';
+      io.to(room).emit('message_updated', message);
+    }
+  });
+
+  // Handle read receipts (message read by a user)
+  socket.on('message_read', ({ messageId }) => {
+    if (!users[socket.id]) return;
+
+    const username = users[socket.id].username;
+
+    let message = messages.find((m) => m.id === messageId);
+    let isPrivateMessage = false;
+    if (!message) {
+      message = privateMessages.find((m) => m.id === messageId);
+      isPrivateMessage = true;
+    }
+    if (!message) return;
+
+    if (!Array.isArray(message.readBy)) message.readBy = [];
+    if (!message.readBy.includes(username)) {
+      message.readBy.push(username);
+
+      // Notify relevant clients about the updated read state
+      if (isPrivateMessage || message.isPrivate) {
+        const recipientSocketId = message.to;
+        const senderSocketId = message.senderId;
+
+        socket.emit('message_updated', message);
+        if (recipientSocketId && recipientSocketId !== socket.id) {
+          socket.to(recipientSocketId).emit('message_updated', message);
+        }
+        if (senderSocketId && senderSocketId !== socket.id && senderSocketId !== recipientSocketId) {
+          socket.to(senderSocketId).emit('message_updated', message);
+        }
+      } else {
+        const room = message.room || 'general';
+        io.to(room).emit('message_updated', message);
+      }
     }
   });
 
@@ -205,23 +313,37 @@ io.on('connection', (socket) => {
       console.log(`${username} left the chat`);
     }
 
+    // remove from any typingUsersByRoom entries
+    Object.keys(typingUsersByRoom).forEach((r) => {
+      if (typingUsersByRoom[r] && typingUsersByRoom[r][socket.id]) {
+        delete typingUsersByRoom[r][socket.id];
+        io.to(r).emit('typing_users', Object.values(typingUsersByRoom[r] || {}));
+      }
+    });
+
     delete users[socket.id];
-    delete typingUsers[socket.id];
 
     // Emit the full known users list (including offline users)
     io.emit('user_list', Object.values(knownUsers));
-    io.emit('typing_users', Object.values(typingUsers));
   });
 });
 
 // API routes
 app.get('/api/messages', (req, res) => {
+  const room = req.query.room;
+  if (room) {
+    return res.json(messages.filter((m) => m.room === room));
+  }
   res.json(messages);
 });
 
 app.get('/api/users', (req, res) => {
   // Return known users with online/offline status
   res.json(Object.values(knownUsers));
+});
+
+app.get('/api/rooms', (req, res) => {
+  res.json(Object.values(rooms));
 });
 
 // Root route

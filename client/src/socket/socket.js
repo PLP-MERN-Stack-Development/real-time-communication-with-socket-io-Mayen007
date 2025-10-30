@@ -19,8 +19,10 @@ export const useSocket = () => {
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [roomsList, setRoomsList] = useState([]);
   const [privateMessages, setPrivateMessages] = useState([]);
   const [users, setUsers] = useState([]);
+  const [currentRoom, setCurrentRoom] = useState(null);
   const [usernameError, setUsernameError] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -39,9 +41,12 @@ export const useSocket = () => {
     socket.disconnect();
   };
 
-  // Send a message
-  const sendMessage = (message) => {
-    socket.emit('send_message', { message });
+  // Send a message (scoped to currentRoom)
+  const sendMessage = (message, room) => {
+    const payload = { message };
+    if (room) payload.room = room;
+    else if (currentRoom) payload.room = currentRoom;
+    socket.emit('send_message', payload);
   };
 
   // Send a private message
@@ -49,14 +54,39 @@ export const useSocket = () => {
     socket.emit('private_message', { to, message });
   };
 
-  // Set typing status
-  const setTyping = (isTyping) => {
-    socket.emit('typing', isTyping);
+  // Set typing status (include room)
+  const setTyping = (isTyping, room) => {
+    const payload = typeof isTyping === 'boolean' ? { isTyping } : isTyping;
+    payload.room = room || currentRoom;
+    socket.emit('typing', payload);
+  };
+
+  const joinRoom = (roomName) => {
+    socket.emit('join_room', roomName);
+  };
+
+  const leaveRoom = (roomName) => {
+    socket.emit('leave_room', roomName);
+  };
+
+  const createRoom = (roomName) => {
+    // just join a room; server will create it if missing
+    socket.emit('join_room', roomName);
   };
 
   // Add a reaction to a message
   const addReaction = (messageId, emoji) => {
     socket.emit('add_reaction', { messageId, emoji });
+  };
+
+  // Mark a message as read (read receipt)
+  const markAsRead = (messageId) => {
+    socket.emit('message_read', { messageId });
+  };
+
+  // Request the current list of rooms from the server
+  const requestRooms = () => {
+    socket.emit('request_room_list');
   };
 
   // Socket event listeners
@@ -74,6 +104,7 @@ export const useSocket = () => {
     // Message events
     const onReceiveMessage = (message) => {
       setLastMessage(message);
+      // append message; UI can filter by currentRoom or room property
       setMessages((prev) => [...prev, message]);
     };
 
@@ -100,6 +131,16 @@ export const useSocket = () => {
     const onPrivateMessage = (message) => {
       setLastMessage(message);
       setPrivateMessages((prev) => [...prev, message]);
+    };
+
+    const onRoomList = (roomNames) => {
+      setRoomsList(roomNames);
+    };
+
+    const onRoomJoined = ({ room, history }) => {
+      setCurrentRoom(room);
+      // Replace messages with room history (keeps UI focused)
+      if (Array.isArray(history)) setMessages(history);
     };
 
     // User events
@@ -153,6 +194,8 @@ export const useSocket = () => {
     socket.on('username_error', onUsernameError);
     socket.on('join_success', onJoinSuccess);
     socket.on('private_message', onPrivateMessage);
+    socket.on('room_list', onRoomList);
+    socket.on('room_joined', onRoomJoined);
     socket.on('user_list', onUserList);
     socket.on('user_joined', onUserJoined);
     socket.on('user_left', onUserLeft);
@@ -167,6 +210,8 @@ export const useSocket = () => {
       socket.off('username_error', onUsernameError);
       socket.off('join_success', onJoinSuccess);
       socket.off('private_message', onPrivateMessage);
+      socket.off('room_list', onRoomList);
+      socket.off('room_joined', onRoomJoined);
       socket.off('user_list', onUserList);
       socket.off('user_joined', onUserJoined);
       socket.off('user_left', onUserLeft);
@@ -186,12 +231,19 @@ export const useSocket = () => {
     usernameError,
     currentUsername,
     currentUserId,
+    roomsList,
+    currentRoom,
     connect,
     disconnect,
     sendMessage,
     sendPrivateMessage,
     setTyping,
     addReaction,
+    markAsRead,
+    joinRoom,
+    leaveRoom,
+    createRoom,
+    requestRooms,
   };
 };
 

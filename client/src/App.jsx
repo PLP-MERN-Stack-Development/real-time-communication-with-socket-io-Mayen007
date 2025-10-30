@@ -1,5 +1,53 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import useVisibility from "./hooks/useVisibility";
 import { useSocket } from "./socket/socket";
+
+function MessageItem({
+  m,
+  currentUsername,
+  currentUserId,
+  markAsRead,
+  addReaction,
+  containerRef,
+}) {
+  const onVisible = () => {
+    if (m && m.senderId && m.senderId !== currentUserId) {
+      markAsRead && markAsRead(m.id);
+    }
+  };
+
+  const ref = useVisibility(onVisible, {
+    rootRef: containerRef,
+    threshold: 0.6,
+    debounceMs: 200,
+  });
+
+  return (
+    <div ref={ref} style={{ marginBottom: 8 }}>
+      <div style={{ fontWeight: 600 }}>{m.sender || "system"}</div>
+      <div>{m.message}</div>
+      <div style={{ color: "#888", fontSize: 12 }}>
+        {m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : ""}
+      </div>
+      {m.readBy && m.readBy.length > 0 && (
+        <div style={{ fontSize: 11, color: "#555", marginTop: 6 }}>
+          Read by: {m.readBy.join(", ")}
+        </div>
+      )}
+      <div style={{ marginTop: 6 }}>
+        {["👍", "❤️", "😂"].map((e) => (
+          <button
+            key={e}
+            onClick={() => addReaction(m.id, e)}
+            style={{ marginRight: 6 }}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const {
@@ -17,23 +65,39 @@ export default function App() {
     usernameError,
     currentUsername,
     currentUserId,
+    roomsList,
+    currentRoom,
+    joinRoom,
+    createRoom,
+    requestRooms,
+    markAsRead,
   } = useSocket();
-  const typingTimeoutRef = useRef(null);
+
   const [name, setName] = useState("");
   const [text, setText] = useState("");
-  const [nameError, setNameError] = useState(null);
   const [pmTarget, setPmTarget] = useState(null);
-  const [pmText, setPmText] = useState("");
+  const [roomSelection, setRoomSelection] = useState("");
+  const [newRoomName, setNewRoomName] = useState("");
 
-  const handleJoin = () => {
-    const trimmed = (name || "").trim();
-    if (!trimmed) {
-      setNameError("Please enter a username");
-      return;
-    }
-    setNameError(null);
-    connect(trimmed);
-  };
+  const messagesRef = useRef(null);
+  const pmRef = useRef(null);
+
+  // Ask the server for the current room list when the component mounts
+  useEffect(() => {
+    if (typeof requestRooms === "function") requestRooms();
+  }, []);
+
+  useEffect(() => {
+    // quick read-mark for existing messages (best-effort)
+    if (!currentUsername || !currentUserId) return;
+    messages.forEach((m) => {
+      if (!m) return;
+      if (m.senderId && m.senderId !== currentUserId) {
+        const readers = Array.isArray(m.readBy) ? m.readBy : [];
+        if (!readers.includes(currentUsername)) markAsRead(m.id);
+      }
+    });
+  }, [messages, currentUserId, currentUsername, markAsRead]);
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial, sans-serif" }}>
@@ -45,15 +109,9 @@ export default function App() {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        {nameError && (
-          <div style={{ color: "red", marginTop: 6 }}>{nameError}</div>
-        )}
-        {usernameError && (
-          <div style={{ color: "red", marginTop: 6 }}>{usernameError}</div>
-        )}
         <button
-          onClick={handleJoin}
-          disabled={isConnected || !name.trim()}
+          onClick={() => connect(name)}
+          disabled={!name || isConnected}
           style={{ marginLeft: 8 }}
         >
           Join
@@ -67,15 +125,59 @@ export default function App() {
         </button>
         {currentUsername && (
           <div style={{ marginTop: 6, color: "green" }}>
-            Connected as {currentUsername}
+            Connected as {currentUsername} • Room: {currentRoom || "none"}
           </div>
         )}
+        {/* Rooms selector */}
+        <div
+          style={{
+            marginTop: 8,
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+          }}
+        >
+          <select
+            value={roomSelection}
+            onChange={(e) => setRoomSelection(e.target.value)}
+          >
+            <option value="">Select room...</option>
+            {roomsList.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              if (roomSelection) joinRoom(roomSelection);
+            }}
+            disabled={!roomSelection}
+          >
+            Join
+          </button>
+          <input
+            placeholder="New room"
+            value={newRoomName}
+            onChange={(e) => setNewRoomName(e.target.value)}
+          />
+          <button
+            onClick={() => {
+              if (newRoomName.trim()) {
+                createRoom(newRoomName.trim());
+                setNewRoomName("");
+              }
+            }}
+          >
+            Create & Join
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: 16 }}>
+      <div style={{ display: "flex", gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <h3>Messages</h3>
           <div
+            ref={messagesRef}
             style={{
               border: "1px solid #ddd",
               padding: 8,
@@ -84,92 +186,22 @@ export default function App() {
             }}
           >
             {messages.map((m) => (
-              <div key={m.id} style={{ marginBottom: 8 }}>
-                <strong>{m.sender || "system"}</strong>: {m.message}{" "}
-                <span style={{ color: "#888", fontSize: 12 }}>
-                  (
-                  {m.timestamp
-                    ? new Date(m.timestamp).toLocaleTimeString()
-                    : ""}
-                  )
-                </span>
-                {/* Reactions display (group by emoji, show who reacted on hover) */}
-                {m.reactions && m.reactions.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: 4,
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                    }}
-                  >
-                    {(() => {
-                      const groups = m.reactions.reduce((acc, r) => {
-                        if (!acc[r.emoji])
-                          acc[r.emoji] = { count: 0, users: [] };
-                        acc[r.emoji].count += 1;
-                        acc[r.emoji].users.push(r.by);
-                        return acc;
-                      }, {});
-
-                      return Object.entries(groups).map(([emoji, data]) => (
-                        <div
-                          key={emoji}
-                          style={{ fontSize: 14 }}
-                          title={data.users.join(", ")}
-                        >
-                          {emoji} {data.count}
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                )}
-                {/* Reaction buttons (toggle) */}
-                <div style={{ marginTop: 6 }}>
-                  {(() => {
-                    const emojis = ["👍", "❤️", "😂"];
-                    return emojis.map((emoji) => {
-                      const userReacted =
-                        m.reactions &&
-                        m.reactions.some(
-                          (r) => r.by === currentUsername && r.emoji === emoji
-                        );
-                      return (
-                        <button
-                          key={emoji}
-                          onClick={() => addReaction(m.id, emoji)}
-                          style={{
-                            marginRight: 6,
-                            background: userReacted ? "#e6f7ff" : undefined,
-                          }}
-                        >
-                          {emoji}
-                        </button>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
+              <MessageItem
+                key={m.id}
+                m={m}
+                currentUsername={currentUsername}
+                currentUserId={currentUserId}
+                markAsRead={markAsRead}
+                addReaction={addReaction}
+                containerRef={messagesRef}
+              />
             ))}
           </div>
 
           <div style={{ marginTop: 8 }}>
             <input
               value={text}
-              onChange={(e) => {
-                const v = e.target.value;
-                setText(v);
-                // Signal typing with debounce: send 'typing' true immediately,
-                // then schedule a 'typing' false after 1s of inactivity.
-                setTyping(true);
-                if (typingTimeoutRef.current) {
-                  clearTimeout(typingTimeoutRef.current);
-                }
-                typingTimeoutRef.current = setTimeout(() => {
-                  setTyping(false);
-                  typingTimeoutRef.current = null;
-                }, 1000);
-              }}
+              onChange={(e) => setText(e.target.value)}
               placeholder="Type a message"
               style={{ width: "70%" }}
             />
@@ -177,12 +209,6 @@ export default function App() {
               onClick={() => {
                 sendMessage(text);
                 setText("");
-                // clear any pending timeout and notify server we've stopped typing
-                if (typingTimeoutRef.current) {
-                  clearTimeout(typingTimeoutRef.current);
-                  typingTimeoutRef.current = null;
-                }
-                setTyping(false);
               }}
               disabled={!isConnected || !text}
               style={{ marginLeft: 8 }}
@@ -190,58 +216,15 @@ export default function App() {
               Send
             </button>
           </div>
-          {/* Typing indicator UI */}
-          <div style={{ marginTop: 6, minHeight: 18 }}>
-            {typingUsers &&
-              typingUsers.length > 0 &&
-              (() => {
-                // Don't show the local user's typing status to themselves
-                const visible = typingUsers.filter(
-                  (u) => u !== currentUsername
-                );
-                if (visible.length === 0) return null;
-                if (visible.length === 1) {
-                  return (
-                    <div
-                      style={{
-                        color: "#555",
-                        fontStyle: "italic",
-                        fontSize: 13,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <span>{visible[0]} is typing</span>
-                      <span className="typing-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </span>
-                    </div>
-                  );
-                }
 
-                return (
-                  <div
-                    style={{
-                      color: "#555",
-                      fontStyle: "italic",
-                      fontSize: 13,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    <span>{visible.join(", ")} are typing</span>
-                    <span className="typing-dots">
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </span>
-                  </div>
-                );
-              })()}
+          <div style={{ marginTop: 8 }}>
+            {typingUsers &&
+              typingUsers.filter((u) => u !== currentUsername).length > 0 && (
+                <div style={{ color: "#555", fontStyle: "italic" }}>
+                  {typingUsers.filter((u) => u !== currentUsername).join(", ")}{" "}
+                  {typingUsers.length === 1 ? "is" : "are"} typing
+                </div>
+              )}
           </div>
         </div>
 
@@ -278,14 +261,11 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                {/* Private message button (only for other users with an id) */}
                 {u.id && u.username !== currentUsername && (
                   <button
-                    onClick={() => {
-                      // open PM thread with this user
-                      setPmTarget({ id: u.id, username: u.username });
-                    }}
-                    style={{ marginLeft: 6 }}
+                    onClick={() =>
+                      setPmTarget({ id: u.id, username: u.username })
+                    }
                   >
                     PM
                   </button>
@@ -295,13 +275,14 @@ export default function App() {
           </ul>
         </div>
       </div>
-      {/* Private conversation panel (appears when a PM target is selected) */}
+
       {pmTarget && (
         <div
           style={{ marginTop: 12, borderTop: "1px solid #eee", paddingTop: 8 }}
         >
           <h4>Private chat with {pmTarget.username}</h4>
           <div
+            ref={pmRef}
             style={{
               border: "1px solid #ddd",
               padding: 8,
@@ -316,34 +297,27 @@ export default function App() {
                   (m.senderId === pmTarget.id && m.to === currentUserId)
               )
               .map((m) => (
-                <div key={m.id} style={{ marginBottom: 6 }}>
-                  <strong>{m.sender}</strong>: {m.message}{" "}
-                  <span style={{ color: "#888", fontSize: 11 }}>
-                    {new Date(m.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
+                <MessageItem
+                  key={m.id}
+                  m={m}
+                  currentUsername={currentUsername}
+                  currentUserId={currentUserId}
+                  markAsRead={markAsRead}
+                  addReaction={addReaction}
+                  containerRef={pmRef}
+                />
               ))}
           </div>
           <div style={{ marginTop: 8 }}>
             <input
-              value={pmText}
-              onChange={(e) => setPmText(e.target.value)}
               placeholder={`Message ${pmTarget.username}`}
-              style={{ width: "70%" }}
-            />
-            <button
-              onClick={() => {
-                if (!pmText.trim()) return;
-                sendPrivateMessage(pmTarget.id, pmText.trim());
-                setPmText("");
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  sendPrivateMessage(pmTarget.id, e.target.value);
+                  e.target.value = "";
+                }
               }}
-              style={{ marginLeft: 8 }}
-            >
-              Send PM
-            </button>
-            <button onClick={() => setPmTarget(null)} style={{ marginLeft: 8 }}>
-              Close
-            </button>
+            />
           </div>
         </div>
       )}
