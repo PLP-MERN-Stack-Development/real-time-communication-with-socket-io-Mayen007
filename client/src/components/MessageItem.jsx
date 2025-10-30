@@ -27,6 +27,16 @@ export default function MessageItem({
   const reactions = Array.isArray(m.reactions) ? m.reactions : [];
   const userReaction = reactions.find((r) => r.by === currentUsername);
 
+  // Helper to produce a usable URL for files. If the server already
+  // returned an absolute URL (http(s)://...) we use it as-is. If it's
+  // relative (e.g. /uploads/...), and SOCKET_URL is set, prepend it.
+  const makeUrl = (u) => {
+    if (!u) return u;
+    if (/^https?:\/\//i.test(u) || /^\/\//.test(u)) return u;
+    if (SOCKET_URL) return `${SOCKET_URL.replace(/\/$/, "")}${u}`;
+    return u; // relative path — browser will resolve relative to client
+  };
+
   return (
     <>
       <div ref={ref} style={{ marginBottom: 8 }}>
@@ -35,13 +45,13 @@ export default function MessageItem({
           {m.fileUrl ? (
             m.fileType && m.fileType.startsWith("image/") ? (
               <img
-                src={`${SOCKET_URL}${m.fileUrl}`}
+                src={makeUrl(m.fileUrl)}
                 alt={m.fileName || "uploaded image"}
                 style={{ maxWidth: 200, maxHeight: 200 }}
               />
             ) : (
               <a
-                href={`${SOCKET_URL}${m.fileUrl}`}
+                href={makeUrl(m.fileUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -55,7 +65,7 @@ export default function MessageItem({
                 const imageUrl = imageMatch[1];
                 return (
                   <img
-                    src={`${SOCKET_URL}${imageUrl}`}
+                    src={makeUrl(imageUrl)}
                     alt="uploaded image"
                     style={{ maxWidth: 200, maxHeight: 200 }}
                   />

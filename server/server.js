@@ -354,8 +354,16 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  // Return the public URL for the uploaded file
-  const url = `/uploads/${req.file.filename}`;
+  // Build an absolute URL for the uploaded file so clients don't have to
+  // prepend the server address. Prefer explicit SERVER_URL env var when set
+  // (useful behind proxies or in deployments), otherwise construct from
+  // request protocol and host.
+  const filename = req.file.filename;
+  const relativePath = `/uploads/${filename}`;
+  const serverUrl = (process.env.SERVER_URL && process.env.SERVER_URL.replace(/\/$/, '')) || `${req.protocol}://${req.get('host')}`;
+  const url = `${serverUrl}${relativePath}`;
+
+  // Return the absolute URL for convenience on the client
   res.json({ url });
 });
 
