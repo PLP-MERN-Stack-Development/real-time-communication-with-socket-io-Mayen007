@@ -1,4 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
+// Animated floating dots for typing indicator
+function TypingDots() {
+  const [dotCount, setDotCount] = useState(1);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev === 3 ? 1 : prev + 1));
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+  return <span>{".".repeat(dotCount)}</span>;
+}
 import useVisibility from "./hooks/useVisibility";
 import { useSocket } from "./socket/socket";
 
@@ -201,7 +212,11 @@ export default function App() {
           <div style={{ marginTop: 8 }}>
             <input
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                setTyping(e.target.value.length > 0);
+              }}
+              onBlur={() => setTyping(false)}
               placeholder="Type a message"
               style={{ width: "70%" }}
             />
@@ -209,6 +224,7 @@ export default function App() {
               onClick={() => {
                 sendMessage(text);
                 setText("");
+                setTyping(false);
               }}
               disabled={!isConnected || !text}
               style={{ marginLeft: 8 }}
@@ -220,9 +236,18 @@ export default function App() {
           <div style={{ marginTop: 8 }}>
             {typingUsers &&
               typingUsers.filter((u) => u !== currentUsername).length > 0 && (
-                <div style={{ color: "#555", fontStyle: "italic" }}>
+                <div
+                  style={{
+                    color: "#555",
+                    fontStyle: "italic",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
                   {typingUsers.filter((u) => u !== currentUsername).join(", ")}{" "}
                   {typingUsers.length === 1 ? "is" : "are"} typing
+                  <TypingDots />
                 </div>
               )}
           </div>
