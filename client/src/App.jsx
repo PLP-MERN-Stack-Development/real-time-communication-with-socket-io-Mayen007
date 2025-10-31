@@ -16,6 +16,7 @@ export default function App() {
     setTyping,
     typingUsers,
     usernameError,
+    clearUsernameError,
     currentUsername,
     currentUserId,
     roomsList,
@@ -41,6 +42,8 @@ export default function App() {
     <ChatLayout
       messages={messages}
       users={users}
+      usernameError={usernameError}
+      clearUsernameError={clearUsernameError}
       typingUsers={typingUsers}
       currentUsername={currentUsername}
       currentUserId={currentUserId}

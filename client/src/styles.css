@@ -1,4 +1,6 @@
-@import "tailwindcss/preflight";
+:root {
+  --muted: #6b7280;
+}
 
 /* small custom styles kept alongside Tailwind */
 :root {

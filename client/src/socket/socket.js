@@ -336,6 +336,8 @@ export const useSocket = () => {
     leaveRoom,
     createRoom,
     requestRooms,
+    // helper to clear username error from UI when user edits their name
+    clearUsernameError: () => setUsernameError(null),
   };
 };
 

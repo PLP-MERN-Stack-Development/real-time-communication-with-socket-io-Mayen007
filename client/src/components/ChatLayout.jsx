@@ -97,8 +97,13 @@ export default function ChatLayout(props) {
             <input
               placeholder="Your name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="border rounded px-2 py-1"
+              onChange={(e) => {
+                setName(e.target.value);
+                props.clearUsernameError && props.clearUsernameError();
+              }}
+              className={`border rounded px-2 py-1 ${
+                props.usernameError ? "border-red-500 ring-1 ring-red-200" : ""
+              }`}
             />
             <button
               onClick={() => props.connect(name)}
@@ -115,6 +120,12 @@ export default function ChatLayout(props) {
               Leave
             </button>
           </div>
+
+          {props.usernameError && (
+            <div className="text-sm text-red-600 mt-1">
+              {props.usernameError}
+            </div>
+          )}
 
           {props.currentUsername && (
             <div className="mt-2 text-green-600">
