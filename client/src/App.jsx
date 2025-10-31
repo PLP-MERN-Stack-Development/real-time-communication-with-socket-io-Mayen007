@@ -26,6 +26,9 @@ export default function App() {
     requestRooms,
     markAsRead,
     unreadCount,
+    pagination,
+    loadingMore,
+    loadMoreMessages,
   } = useSocket();
   // Local state for PM target and refs
   const [pmTarget, setPmTarget] = useState(null);
@@ -65,6 +68,9 @@ export default function App() {
       currentRoom={currentRoom}
       joinRoom={joinRoom}
       createRoom={createRoom}
+      pagination={pagination}
+      loadingMore={loadingMore}
+      loadMoreMessages={loadMoreMessages}
     />
   );
 }

@@ -43,6 +43,8 @@ export const useSocket = () => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, hasNextPage: false });
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Connect to socket server
   const connect = (username) => {
@@ -126,6 +128,28 @@ export const useSocket = () => {
   // Request the current list of rooms from the server
   const requestRooms = () => {
     socket.emit('request_room_list');
+  };
+
+  // Load more messages for pagination
+  const loadMoreMessages = async () => {
+    if (loadingMore || !pagination.hasNextPage) return;
+
+    setLoadingMore(true);
+    try {
+      const nextPage = pagination.currentPage + 1;
+      const response = await fetch(`${SOCKET_URL}/api/messages?room=${currentRoom || 'general'}&page=${nextPage}&limit=50`);
+      const data = await response.json();
+
+      if (data.messages && data.messages.length > 0) {
+        // Prepend older messages to the beginning of the array
+        setMessages(prev => [...data.messages, ...prev]);
+        setPagination(data.pagination);
+      }
+    } catch (error) {
+      console.error('Failed to load more messages:', error);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   // Socket event listeners
@@ -218,6 +242,8 @@ export const useSocket = () => {
       setCurrentRoom(room);
       // Replace messages with room history (keeps UI focused)
       if (Array.isArray(history)) setMessages(history);
+      // Reset pagination when joining a room
+      setPagination({ currentPage: 1, totalPages: 1, hasNextPage: false });
       // clear unread when switching/joining a room
       setUnreadCount(0);
     };
@@ -325,6 +351,8 @@ export const useSocket = () => {
     roomsList,
     currentRoom,
     unreadCount,
+    pagination,
+    loadingMore,
     connect,
     disconnect,
     sendMessage,
@@ -336,6 +364,7 @@ export const useSocket = () => {
     leaveRoom,
     createRoom,
     requestRooms,
+    loadMoreMessages,
     // helper to clear username error from UI when user edits their name
     clearUsernameError: () => setUsernameError(null),
   };

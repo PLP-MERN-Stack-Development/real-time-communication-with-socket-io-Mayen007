@@ -172,8 +172,8 @@ io.on('connection', (socket) => {
 
     messages.push(message);
 
-    // Limit stored messages to prevent memory issues
-    if (messages.length > 100) {
+    // Limit stored messages to prevent memory issues (increased for pagination demo)
+    if (messages.length > 1000) {
       messages.shift();
     }
 
@@ -370,10 +370,33 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 // API routes
 app.get('/api/messages', (req, res) => {
   const room = req.query.room;
-  if (room) {
-    return res.json(messages.filter((m) => m.room === room));
-  }
-  res.json(messages);
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+
+  let roomMessages = room ? messages.filter((m) => m.room === room) : messages;
+
+  // Sort messages by timestamp (newest first)
+  roomMessages = roomMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Calculate pagination
+  const totalMessages = roomMessages.length;
+  const totalPages = Math.ceil(totalMessages / limit);
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+
+  // Get paginated messages
+  const paginatedMessages = roomMessages.slice(startIndex, endIndex);
+
+  res.json({
+    messages: paginatedMessages,
+    pagination: {
+      currentPage: page,
+      totalPages,
+      totalMessages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1
+    }
+  });
 });
 
 app.get('/api/users', (req, res) => {

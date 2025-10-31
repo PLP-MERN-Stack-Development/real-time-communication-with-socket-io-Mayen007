@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="chatGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Chat bubble -->
+  <path d="M6 8c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h12l4 4V12c0-1.1-.9-2-2-2H6z"
+        fill="url(#chatGradient)"
+        stroke="#1E40AF"
+        stroke-width="1.5"
+        rx="4"/>
+
+  <!-- Lightning bolt (real-time indicator) -->
+  <path d="M16 12l-2 4h2l-1 4 4-6h-2l1-2z"
+        fill="#FFFFFF"
+        stroke="#FFFFFF"
+        stroke-width="0.5"
+        stroke-linejoin="round"/>
+
+  <!-- Signal waves (communication) -->
+  <path d="M22 16c0-1.5-1.5-2.5-2.5-2.5s-2.5 1-2.5 2.5 1 2.5 2.5 2.5S22 17.5 22 16z"
+        fill="none"
+        stroke="#60A5FA"
+        stroke-width="1.5"
+        opacity="0.7"/>
+  <path d="M25 16c0-2.5-2.5-4-4-4s-4 1.5-4 4 1.5 4 4 4 4-1.5 4-4z"
+        fill="none"
+        stroke="#93C5FD"
+        stroke-width="1"
+        opacity="0.5"/>
+</svg>

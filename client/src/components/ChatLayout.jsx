@@ -7,6 +7,7 @@ import TypingIndicator from "./TypingIndicator";
 import PrivateChat from "./PrivateChat";
 import PMPanel from "./PMPanel";
 import { requestPermission } from "../utils/notifications";
+import logo from "../assets/logo.svg";
 
 export default function ChatLayout(props) {
   // Local state for join form and message input
@@ -65,7 +66,8 @@ export default function ChatLayout(props) {
     <div className="px-4 py-6 font-sans bg-gray-50 min-h-screen">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-          <h1 className="flex items-center gap-2 text-2xl wrap-break-word">
+          <h1 className="flex items-center gap-3 text-2xl wrap-break-word">
+            <img src={logo} alt="Realtime Chat Logo" className="w-8 h-8" />
             Realtime Chat
             {props.unreadCount > 0 && (
               <span className="bg-red-600 text-white rounded-full px-2 text-xs ml-1 sm:ml-2">
@@ -237,6 +239,19 @@ export default function ChatLayout(props) {
                   )}
                 </div>
               </div>
+
+              {/* Load More Button */}
+              {props.pagination && props.pagination.hasNextPage && (
+                <div className="mb-3 text-center">
+                  <button
+                    onClick={props.loadMoreMessages}
+                    disabled={props.loadingMore}
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {props.loadingMore ? "Loading..." : "Load More Messages"}
+                  </button>
+                </div>
+              )}
 
               <MessageList
                 messages={
