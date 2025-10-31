@@ -7,6 +7,27 @@
   --muted: #6b7280;
 }
 
+/* global box-sizing and prevent horizontal overflow caused by unexpected wide elements */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* avoid globally hiding overflow; use responsive layouts instead */
+
+/* ensure images never cause horizontal scroll */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* helper for long words/URLs inside message bubbles */
+.wrap-break-word {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Typing indicator animated dots */
 .typing-dots {
   display: inline-block;

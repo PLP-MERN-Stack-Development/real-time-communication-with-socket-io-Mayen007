@@ -37,8 +37,19 @@ export default function TypingIndicator({ typingUsers = [], currentUsername }) {
   const text = others.join(", ");
 
   return (
-    <div className="text-gray-600 italic flex items-center gap-2">
-      {text} {label} typing<span className="ml-1">...</span>
+    <div
+      className="text-gray-600 italic flex items-center gap-2 flex-wrap text-sm wrap-break-word"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="truncate">
+        {text} {label} typing
+      </span>
+      <span className="typing-dots" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
     </div>
   );
 }

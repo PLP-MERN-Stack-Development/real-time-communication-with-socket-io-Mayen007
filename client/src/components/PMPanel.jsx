@@ -54,10 +54,9 @@ export default function PMPanel({
     <div
       ref={panelRef}
       className={
-        "fixed right-0 top-0 h-full bg-white shadow-lg z-50 flex flex-col transition-transform duration-200 " +
+        "fixed right-0 top-0 h-full bg-white shadow-lg z-50 flex flex-col transition-transform duration-200 w-full md:w-[360px] " +
         (open ? "translate-x-0" : "translate-x-full")
       }
-      style={{ width: 360 }}
     >
       <div className="p-3 border-b flex items-center justify-between">
         <div>
