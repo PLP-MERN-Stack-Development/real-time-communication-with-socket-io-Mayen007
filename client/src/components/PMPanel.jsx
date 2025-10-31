@@ -69,7 +69,7 @@ export default function PMPanel({
           <button
             onClick={onClose}
             aria-label="Close PM"
-            className="text-sm px-2 py-1 rounded hover:bg-gray-100"
+            className="text-sm px-2 py-1 rounded hover:bg-gray-100 hover:cursor-pointer"
           >
             Close
           </button>
@@ -104,7 +104,7 @@ export default function PMPanel({
           <button
             onClick={handleSend}
             disabled={!text}
-            className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
+            className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50 hover:disabled:cursor-not-allowed hover:bg-blue-700 hover:cursor-pointer"
           >
             Send
           </button>

@@ -128,14 +128,14 @@ export default function ChatLayout(props) {
             <button
               onClick={() => props.connect(name)}
               disabled={!name || props.isConnected}
-              className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50 w-full md:w-auto"
+              className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50 w-full md:w-auto hover:cursor-pointer hover:bg-blue-500 hover:disabled:cursor-not-allowed"
             >
               Join
             </button>
             <button
               onClick={() => props.disconnect()}
               disabled={!props.isConnected}
-              className="bg-gray-200 px-3 py-1 rounded disabled:opacity-50 w-full md:w-auto"
+              className="bg-gray-200 px-3 py-1 rounded disabled:opacity-50 w-full md:w-auto hover:cursor-pointer hover:bg-gray-300 hover:disabled:cursor-not-allowed"
             >
               Leave
             </button>
@@ -178,7 +178,7 @@ export default function ChatLayout(props) {
                 if (roomSelection) props.joinRoom(roomSelection);
               }}
               disabled={!roomSelection}
-              className="bg-blue-500 text-white px-2 py-1 rounded disabled:opacity-50 w-full sm:w-auto"
+              className="bg-blue-500 text-white px-2 py-1 rounded disabled:opacity-50 w-full sm:w-auto hover:cursor-pointer hover:bg-blue-600 hover:disabled:cursor-not-allowed"
             >
               Join
             </button>
@@ -195,7 +195,7 @@ export default function ChatLayout(props) {
                   setNewRoomName("");
                 }
               }}
-              className="bg-green-500 text-white px-2 py-1 rounded w-full sm:w-auto"
+              className="bg-green-500 text-white px-2 py-1 rounded w-full sm:w-auto hover:cursor-pointer hover:bg-green-600 hover:disabled:cursor-not-allowed"
             >
               Create & Join
             </button>
@@ -232,7 +232,7 @@ export default function ChatLayout(props) {
                   {searchTerm && (
                     <button
                       onClick={() => setSearchTerm("")}
-                      className="px-2 py-1 bg-gray-100 rounded"
+                      className="px-2 py-1 bg-gray-100 rounded hover:cursor-pointer hover:bg-gray-200"
                     >
                       Clear
                     </button>
@@ -302,7 +302,7 @@ export default function ChatLayout(props) {
                   props.setTyping && props.setTyping(false);
                 }}
                 disabled={!props.isConnected || !text}
-                className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50 hover:cursor-pointer w-full md:w-auto hover:bg-blue-500 hover:disabled:cursor-not-allowed"
               >
                 Send
               </button>
@@ -346,7 +346,7 @@ export default function ChatLayout(props) {
               <h2 className="text-lg font-bold">Users</h2>
               <button
                 onClick={() => setShowUsersMobile(false)}
-                className="px-2 py-1 rounded bg-gray-100"
+                className="px-2 py-1 rounded bg-gray-100 hover:cursor-pointer"
               >
                 Close
               </button>

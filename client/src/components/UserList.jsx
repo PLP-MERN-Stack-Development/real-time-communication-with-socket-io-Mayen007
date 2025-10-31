@@ -32,7 +32,7 @@ export default function UserList({ users, currentUsername, onPm }) {
             {u.id && u.username !== currentUsername && (
               <button
                 onClick={() => onPm(u)}
-                className="text-sm px-2 py-1 rounded bg-blue-500 text-white shrink-0 w-16 text-center"
+                className="text-sm px-2 py-1 rounded bg-blue-500 text-white shrink-0 w-16 text-center hover:cursor-pointer hover:bg-blue-600"
               >
                 PM
               </button>

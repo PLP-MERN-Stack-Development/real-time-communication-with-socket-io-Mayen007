@@ -31,18 +31,20 @@ export default function FileUpload({ onUpload, disabled }) {
   };
 
   return (
-    <label className="inline-flex items-center gap-2 w-full sm:w-auto">
-      <input
-        type="file"
-        accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        onChange={handleChange}
-        disabled={uploading || disabled}
-        className="hidden"
-      />
-      <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-300 px-3 py-1 rounded cursor-pointer hover:bg-gray-200 text-sm w-full sm:w-auto justify-center">
-        Upload
-      </span>
-      {uploading && <span className="text-gray-500">Uploading...</span>}
-    </label>
+    <>
+      <label className="inline-flex items-center gap-2 w-full sm:w-auto">
+        <input
+          type="file"
+          accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          onChange={handleChange}
+          disabled={uploading || disabled}
+          className="hidden"
+        />
+        <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-300 px-3 py-1 rounded cursor-pointer hover:bg-gray-200 text-sm w-full sm:w-auto justify-center hover:cursor-pointer">
+          Upload
+        </span>
+        {uploading && <span className="text-gray-500">Uploading...</span>}
+      </label>
+    </>
   );
 }
