@@ -24,8 +24,8 @@ export default function App() {
     createRoom,
     requestRooms,
     markAsRead,
+    unreadCount,
   } = useSocket();
-
   // Local state for PM target and refs
   const [pmTarget, setPmTarget] = useState(null);
   const messagesRef = useRef(null);
@@ -34,6 +34,8 @@ export default function App() {
   const handlePm = (user) => {
     setPmTarget(user);
   };
+
+  const handleClosePm = () => setPmTarget(null);
 
   return (
     <ChatLayout
@@ -48,11 +50,14 @@ export default function App() {
       pmTarget={pmTarget}
       privateMessages={privateMessages}
       onPm={handlePm}
+      onClosePm={handleClosePm}
       connect={connect}
       disconnect={disconnect}
       isConnected={isConnected}
       sendMessage={sendMessage}
+      sendPrivateMessage={sendPrivateMessage}
       setTyping={setTyping}
+      unreadCount={unreadCount}
       roomsList={roomsList}
       currentRoom={currentRoom}
       joinRoom={joinRoom}

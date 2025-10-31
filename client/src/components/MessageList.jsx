@@ -1,11 +1,11 @@
 import React from "react";
 const MessageList = React.forwardRef(function MessageList(
-  { messages, renderItem, ...props },
+  { messages, renderItem, className, style, ...rest },
   ref
 ) {
   return (
     <>
-      <div ref={ref} {...props}>
+      <div ref={ref} className={className} style={style} {...rest}>
         {messages.map((m) => renderItem(m))}
       </div>
     </>

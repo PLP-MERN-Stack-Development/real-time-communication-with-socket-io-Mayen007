@@ -2,6 +2,11 @@
 
 import { io } from 'socket.io-client';
 import { useEffect, useState } from 'react';
+import {
+  requestPermission,
+  sendBrowserNotification,
+  playSound,
+} from '../utils/notifications';
 
 // Socket.io connection URL — read from Vite env (client/.env). If not set,
 // we fall back to an empty string so relative URLs still work. Setting this
@@ -37,6 +42,7 @@ export const useSocket = () => {
   const [currentUsername, setCurrentUsername] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Connect to socket server
   const connect = (username) => {
@@ -73,8 +79,18 @@ export const useSocket = () => {
   };
 
   // Send a private message
-  const sendPrivateMessage = (to, message) => {
-    socket.emit('private_message', { to, message });
+  // Accept either a simple string message or an object payload with
+  // additional fields (fileUrl, fileName, fileType, etc.).
+  const sendPrivateMessage = (to, messageOrPayload) => {
+    let payload = { to };
+    if (typeof messageOrPayload === 'string') {
+      payload.message = messageOrPayload;
+    } else if (messageOrPayload && typeof messageOrPayload === 'object') {
+      payload = { ...payload, ...messageOrPayload };
+    } else {
+      payload.message = '';
+    }
+    socket.emit('private_message', payload);
   };
 
   // Set typing status (include room)
@@ -114,6 +130,19 @@ export const useSocket = () => {
 
   // Socket event listeners
   useEffect(() => {
+    // ask for notification permission once if notifications are enabled
+    try {
+      const notificationsEnabledAtStart = typeof window !== 'undefined' ? localStorage.getItem('notifications_enabled') !== 'false' : true;
+      if (notificationsEnabledAtStart) requestPermission();
+    } catch (e) {
+      // ignore
+    }
+
+    const onWindowFocus = () => {
+      // clear unread count when user focuses the window
+      setUnreadCount(0);
+    };
+    window.addEventListener('focus', onWindowFocus);
     // Connection events
     const onConnect = () => {
       setIsConnected(true);
@@ -129,6 +158,29 @@ export const useSocket = () => {
       setLastMessage(message);
       // append message; UI can filter by currentRoom or room property
       setMessages((prev) => [...prev, message]);
+      try {
+        // notify only for messages from others
+        const fromMe = message.senderId && message.senderId === socket.id;
+        if (!fromMe) {
+          // If the window is hidden or message is for another room, count as unread
+          if (document.hidden || (message.room && message.room !== currentRoom)) {
+            setUnreadCount((c) => c + 1);
+          }
+          // browser notification and sound
+          const title = message.sender || 'New message';
+          const body = typeof message.message === 'string' ? message.message.replace(/!\[.*?]\((.*?)\)/g, '') : '';
+          try {
+            const notificationsEnabled = typeof window !== 'undefined' ? localStorage.getItem('notifications_enabled') !== 'false' : true;
+            const soundEnabled = typeof window !== 'undefined' ? localStorage.getItem('sound_enabled') !== 'false' : true;
+            if (notificationsEnabled) sendBrowserNotification(title, { body });
+            if (soundEnabled) playSound();
+          } catch (e) {
+            // ignore
+          }
+        }
+      } catch (e) {
+        // ignore notification errors
+      }
     };
 
     const onUsernameError = (err) => {
@@ -149,6 +201,8 @@ export const useSocket = () => {
           timestamp: new Date().toISOString(),
         },
       ]);
+      // clear unread when joining
+      setUnreadCount(0);
     };
 
     const onPrivateMessage = (message) => {
@@ -164,6 +218,8 @@ export const useSocket = () => {
       setCurrentRoom(room);
       // Replace messages with room history (keeps UI focused)
       if (Array.isArray(history)) setMessages(history);
+      // clear unread when switching/joining a room
+      setUnreadCount(0);
     };
 
     // User events
@@ -182,6 +238,13 @@ export const useSocket = () => {
           timestamp: new Date().toISOString(),
         },
       ]);
+      // small notification for join (respect settings)
+      try {
+        const notificationsEnabled = typeof window !== 'undefined' ? localStorage.getItem('notifications_enabled') !== 'false' : true;
+        const soundEnabled = typeof window !== 'undefined' ? localStorage.getItem('sound_enabled') !== 'false' : true;
+        if (notificationsEnabled) sendBrowserNotification('User joined', { body: `${user.username} joined` });
+        if (soundEnabled) playSound();
+      } catch (e) { }
     };
 
     const onUserLeft = (user) => {
@@ -195,6 +258,10 @@ export const useSocket = () => {
           timestamp: new Date().toISOString(),
         },
       ]);
+      try {
+        const notificationsEnabled = typeof window !== 'undefined' ? localStorage.getItem('notifications_enabled') !== 'false' : true;
+        if (notificationsEnabled) sendBrowserNotification('User left', { body: `${user.username} left` });
+      } catch (e) { }
     };
 
     // Typing events
@@ -240,6 +307,7 @@ export const useSocket = () => {
       socket.off('user_left', onUserLeft);
       socket.off('typing_users', onTypingUsers);
       socket.off('message_updated', onMessageUpdated);
+      window.removeEventListener('focus', onWindowFocus);
     };
   }, []);
 
@@ -256,6 +324,7 @@ export const useSocket = () => {
     currentUserId,
     roomsList,
     currentRoom,
+    unreadCount,
     connect,
     disconnect,
     sendMessage,

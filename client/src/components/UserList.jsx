@@ -3,31 +3,23 @@ import React from "react";
 export default function UserList({ users, currentUsername, onPm }) {
   return (
     <>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      <ul className="list-none p-0 m-0">
         {users.map((u) => (
           <li
             key={u.username || u.id}
-            style={{
-              padding: "6px 4px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
+            className="py-2 px-1 flex items-center gap-2"
           >
             <span
-              style={{
-                display: "inline-block",
-                width: 10,
-                height: 10,
-                borderRadius: 6,
-                background: u.online ? "#32a852" : "#bbb",
-              }}
+              className={
+                "inline-block w-2.5 h-2.5 rounded-full " +
+                (u.online ? "bg-green-500" : "bg-gray-300")
+              }
               title={u.online ? "Online" : "Offline"}
             />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>{u.username}</div>
+            <div className="flex-1">
+              <div className="font-semibold">{u.username}</div>
               {!u.online && (
-                <div style={{ fontSize: 11, color: "#777" }}>
+                <div className="text-xs text-gray-500">
                   {u.lastSeen
                     ? `last seen ${new Date(u.lastSeen).toLocaleString()}`
                     : "offline"}
@@ -35,7 +27,12 @@ export default function UserList({ users, currentUsername, onPm }) {
               )}
             </div>
             {u.id && u.username !== currentUsername && (
-              <button onClick={() => onPm(u)}>PM</button>
+              <button
+                onClick={() => onPm(u)}
+                className="text-sm px-2 py-1 rounded bg-blue-500 text-white"
+              >
+                PM
+              </button>
             )}
           </li>
         ))}

@@ -13,18 +13,11 @@ export default function PrivateChat({
   if (!pmTarget) return null;
   return (
     <>
-      <div
-        style={{ marginTop: 12, borderTop: "1px solid #eee", paddingTop: 8 }}
-      >
-        <h4>Private chat with {pmTarget.username}</h4>
+      <div className="mt-3 border-t pt-2">
+        <h4 className="font-semibold">Private chat with {pmTarget.username}</h4>
         <div
           ref={pmRef}
-          style={{
-            border: "1px solid #ddd",
-            padding: 8,
-            height: 200,
-            overflow: "auto",
-          }}
+          className="border border-gray-200 p-2 h-48 overflow-auto"
         >
           {privateMessages
             .filter(
@@ -44,9 +37,10 @@ export default function PrivateChat({
               />
             ))}
         </div>
-        <div style={{ marginTop: 8 }}>
+        <div className="mt-2">
           <input
             placeholder={`Message ${pmTarget.username}`}
+            className="border rounded px-2 py-1 w-full"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 addReaction(pmTarget.id, e.target.value);
