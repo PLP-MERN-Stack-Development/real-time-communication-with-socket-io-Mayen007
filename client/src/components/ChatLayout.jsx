@@ -17,6 +17,9 @@ export default function ChatLayout(props) {
   const [uploading, setUploading] = useState(false);
   const [showUsersMobile, setShowUsersMobile] = useState(false);
 
+  // message search
+  const [searchTerm, setSearchTerm] = useState("");
+
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   useEffect(() => {
@@ -200,8 +203,56 @@ export default function ChatLayout(props) {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_16rem] gap-4">
           <div className="md:col-start-1">
             <div className="bg-white rounded-lg shadow p-3">
+              <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <input
+                  placeholder="Search messages"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="border rounded px-2 py-1 w-full sm:w-1/2"
+                />
+                <div className="text-sm text-gray-500 flex items-center gap-2">
+                  <span>
+                    {props.messages
+                      ? props.messages.filter((m) => {
+                          const q = searchTerm.trim().toLowerCase();
+                          if (!q) return true;
+                          return (
+                            (m.message &&
+                              m.message.toLowerCase().includes(q)) ||
+                            (m.fileName &&
+                              m.fileName.toLowerCase().includes(q)) ||
+                            (m.sender && m.sender.toLowerCase().includes(q))
+                          );
+                        }).length
+                      : 0}
+                    /{props.messages ? props.messages.length : 0}
+                  </span>
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="px-2 py-1 bg-gray-100 rounded"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <MessageList
-                messages={props.messages}
+                messages={
+                  props.messages
+                    ? props.messages.filter((m) => {
+                        const q = searchTerm.trim().toLowerCase();
+                        if (!q) return true;
+                        return (
+                          (m.message && m.message.toLowerCase().includes(q)) ||
+                          (m.fileName &&
+                            m.fileName.toLowerCase().includes(q)) ||
+                          (m.sender && m.sender.toLowerCase().includes(q))
+                        );
+                      })
+                    : []
+                }
                 renderItem={(m) => (
                   <MessageItem
                     key={m.id}
